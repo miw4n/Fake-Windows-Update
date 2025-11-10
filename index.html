@@ -5,31 +5,100 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Fake Windows Update — Realistic</title>
 <style>
-  html,body{height:100%;margin:0;font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;}
-  body{background:#0078D7;color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center}
+html,body{height:100%;margin:0;font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;}
+body{background:#0078D7;color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center}
 
-  .screen{position:absolute;inset:0;display:none;flex-direction:column;text-align:center;padding:24px;pointer-events:none;}
-  .screen .interactive{pointer-events:auto;} /* seuls les éléments interactifs reçoivent les clics */
+/* Écrans */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;text-align:center;padding:24px;pointer-events:none;}
+.screen .interactive{pointer-events:auto;} 
 
-  #menu{display:flex;gap:12px;flex-direction:column;align-items:center}
-  .card{background: rgba(0,0,0,0.18);padding:18px;border-radius:12px;backdrop-filter: blur(4px);min-width:320px}
+#menu{display:flex;gap:12px;flex-direction:column;align-items:center}
+.card{background: rgba(0,0,0,0.18);padding:18px;border-radius:12px;backdrop-filter: blur(4px);min-width:320px}
+label{display:flex;justify-content:space-between;align-items:center;margin:8px 0;color:#fff}
+input[type=number]{width:100px;padding:6px;border-radius:6px;border:none;background:rgba(255,255,255,0.06);color:#fff}
+input[type=checkbox]{transform:scale(1.1);margin-left:8px}
+button{margin-top:12px;padding:10px 14px;border-radius:8px;border:none;background:#0f1724;color:#fff;cursor:pointer;font-weight:600}
+.muted{color:rgba(255,255,255,0.75);font-size:13px}
 
-  label{display:flex;justify-content:space-between;align-items:center;margin:8px 0;color:#fff}
-  input[type=number]{width:100px;padding:6px;border-radius:6px;border:none;background:rgba(255,255,255,0.06);color:#fff}
-  input[type=checkbox]{transform:scale(1.1);margin-left:8px}
-  button{margin-top:12px;padding:10px 14px;border-radius:8px;border:none;background:#0f1724;color:#fff;cursor:pointer;font-weight:600}
-  .muted{color:rgba(255,255,255,0.75);font-size:13px}
+/* Update screen */
+#updateScreen{display:flex;flex-direction:column;justify-content:center;align-items:center}
+.title{font-size:28px;margin-bottom:24px;font-weight:500}
+.spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+canvas#spinner{width:80px;height:80px;background:transparent;display:block}
+.percentage{font-size:16px;font-weight:500;letter-spacing:1px;color:#fff;min-width:120px;text-align:center}
+.status-box{margin-top:20px;font-size:16px;color:rgba(255,255,255,0.85);line-height:1.5;max-width:760px}
 
-  #updateScreen{display:flex;flex-direction:column;justify-content:center;align-items:center}
-  .title{font-size:28px;margin-bottom:24px;font-weight:500}
-  .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
-  canvas#spinner{width:80px;height:80px;background:transparent;display:block}
-  .percentage{font-size:16px;font-weight:500;letter-spacing:1px;color:#fff;min-width:120px;text-align:center}
+/* BIOS screen */
+#biosScreen{background:#000;color:#fff;font-family:"Courier New", monospace;padding:20px;align-items:flex-start;justify-content:flex-start;overflow:auto;text-align:left}
+#biosContent{white-space:pre-wrap;font-size:14px;line-height:1.4;max-width:100%;}
 
-  .status-box{margin-top:20px;font-size:16px;color:rgba(255,255,255,0.85);line-height:1.5;max-width:760px}
+/* Login screen Windows 10 style */
+#loginScreen {
+  display:none;
+  width:100%;
+  height:100%;
+  background: url('fond.jpeg') center/cover no-repeat;
+  position:relative;
+	pointer-events: auto; 
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+}
 
-  #biosScreen{background:#000;color:#fff;font-family:"Courier New", monospace;padding:20px;align-items:flex-start;justify-content:flex-start;overflow:auto;text-align:left}
-  #biosContent{white-space:pre-wrap;font-size:14px;line-height:1.4;max-width:100%;}
+.login-avatar {
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  background: url('profil.jpeg') center/cover no-repeat;
+  margin-bottom:20px;
+}
+
+.login-user {
+  font-size:24px;
+  color:#fff;
+  font-weight:500;
+  margin-bottom:20px;
+}
+
+.login-input {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius:6px;
+  padding:12px 16px;
+  color:#fff;
+  width:220px;
+  text-align:center;
+  font-size:16px;
+  margin-bottom:12px;
+  outline:none;
+}
+
+.login-input::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+.login-hint {
+  margin-top:6px;
+  font-size:13px;
+  color: rgba(255,255,255,0.75);
+  margin-bottom:30px;
+}
+
+/* Fake reboot button */
+.fake-reboot {
+  position:absolute;
+  bottom:20px;
+  right:20px;
+  width:50px;
+  height:50px;
+  background: url('shutdown.png') center/cover no-repeat;
+  cursor:pointer;
+  opacity:0.85;
+  transition:opacity 0.2s;
+}
+.fake-reboot:hover {
+  opacity:1;
+}
 </style>
 </head>
 <body>
@@ -48,16 +117,12 @@
     <label>Show step lines:
       <input id="showSteps" type="checkbox" checked>
     </label>
-	<label>Spinner speed:
-  <input id="spinSpeed" type="number" min="0.01" max="0.5" step="0.01" value="0.05">
-</label>
-
+    <label>Spinner speed:
+      <input id="spinSpeed" type="number" min="0.01" max="0.5" step="0.01" value="0.05">
+    </label>
+		    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="miw4n" data-color="#FFDD00" data-emoji="🧋"  data-font="Cookie" data-text="Buy me a bubble tea" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
     <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
       <button id="startBtn">Start Fake Update</button>
-    </div>
-	    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="miw4n" data-color="#FFDD00" data-emoji="🧋"  data-font="Cookie" data-text="Buy me a bubble tea" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
-    <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.75)">
-      Press <strong>Esc</strong> at any time to cancel and return here.
     </div>
   </div>
 </div>
@@ -82,6 +147,21 @@
   <div id="biosContent"></div>
 </div>
 
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="screen">
+  <div class="login-avatar"></div>
+  <div class="login-user">Utilisateur</div>
+  <input type="password" id="loginPassword" class="login-input" placeholder="Password" autofocus>
+  <div class="login-hint">Sign-in options</div>
+  <div class="fake-reboot" title="Restart"></div>
+</div>
+
+<!-- FINAL SCREEN -->
+<div id="finalScreen" class="screen interactive" style="display:none; background:#000; color:#fff; justify-content:center; align-items:center; flex-direction:column;">
+  <div style="font-size:28px; margin-bottom:20px;">You did what you had to</div>
+
+
+</div>
 
 <script>
 // --- Elements ---
@@ -89,11 +169,11 @@ const menu = document.getElementById('menu');
 const startBtn = document.getElementById('startBtn');
 const durationInput = document.getElementById('duration');
 const fullscreenInput = document.getElementById('fullscreen');
-const spinSpeedInput = document.getElementById('spinSpeed');
 const showStepsInput = document.getElementById('showSteps');
-
+const spinSpeedInput = document.getElementById('spinSpeed');
 let spinSpeed = 0.05;
-
+const finalScreen = document.getElementById('finalScreen');
+const resetBtn = document.getElementById('resetBtn');
 const updateScreen = document.getElementById('updateScreen');
 const spinnerCanvas = document.getElementById('spinner');
 const percentText = document.getElementById('percentText');
@@ -104,6 +184,10 @@ const line4 = document.getElementById('line4');
 
 const biosScreen = document.getElementById('biosScreen');
 const biosContent = document.getElementById('biosContent');
+
+const loginScreen = document.getElementById('loginScreen');
+const loginPassword = document.getElementById('loginPassword');
+const fakeReboot = document.querySelector('.fake-reboot');
 
 let animReq = null;
 let progressTimer = null;
@@ -116,52 +200,31 @@ const W = spinnerCanvas.width, H = spinnerCanvas.height;
 const cx = W/2, cy = H/2, radius = Math.min(W,H)/2 - 6;
 const DOT_COUNT = 12;
 let spinAngle = 0;
-let regroupPhase = 0; // 0 = normal, 1 = regroupement, 2 = redéploiement
-let regroupProgress = 0;
-function drawSpinner() {
-  ctx.clearRect(0, 0, W, H);
 
-  for (let i = 0; i < DOT_COUNT; i++) {
-    const baseAngle = (i / DOT_COUNT) * Math.PI * 2;
-    let angle = baseAngle + spinAngle;
-
-    let r = radius;
-    if (regroupPhase === 1) {
-      // Regroupement vers le haut (progress de 0 à 1)
-      r = radius * (1 - 0.7 * regroupProgress);
-      angle = -Math.PI / 2 + (baseAngle - Math.PI / 2) * (1 - regroupProgress);
-    } else if (regroupPhase === 2) {
-      // Redéploiement progressif
-      r = radius * (0.3 + 0.7 * regroupProgress);
-      angle = -Math.PI / 2 + (baseAngle - Math.PI / 2) * regroupProgress;
-    }
-
-    const x = cx + Math.cos(angle) * r;
-    const y = cy + Math.sin(angle) * r;
-
-    // Style du point
-    const lead = (spinAngle / (Math.PI * 2)) % 1;
-    const phase = (i / DOT_COUNT);
-    let offset = (phase - lead + 2) % 1;
-    let fade = Math.max(0.12, 1 - offset * 1.6);
-    let dotRadius = 3 * (0.5 + fade * 0.5);
-
+function drawSpinner(){
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<DOT_COUNT;i++){
+    const angle = (i/DOT_COUNT)*Math.PI*2 + spinAngle;
+    const phase = (i/DOT_COUNT);
+    const lead = (spinAngle/(Math.PI*2)) %1;
+    let offset = (phase-lead+2)%1;
+    let fade = Math.max(0.12,1-offset*1.6);
+    let dotRadius = 3*(0.5+fade*0.5);
+    const x = cx + Math.cos(angle)*radius;
+    const y = cy + Math.sin(angle)*radius;
     ctx.beginPath();
-    ctx.fillStyle = `rgba(255,255,255,${0.18 + fade * 0.82})`;
-    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${0.18+fade*0.82})`;
+    ctx.arc(x, y, dotRadius,0,Math.PI*2);
     ctx.fill();
   }
 }
 
-
 function spinnerLoop() {
-  const mod = 0.7 + 0.3 * Math.cos(spinAngle); // varie entre 0.4 et 1.0
-  spinAngle += spinSpeed * mod; 
-
+  const mod = 0.7 + 0.3 * Math.cos(spinAngle);
+  spinAngle += spinSpeed * mod;
   drawSpinner();
   animReq = requestAnimationFrame(spinnerLoop);
 }
-
 
 // --- Progression ---
 function startProgress(durationSec){
@@ -183,6 +246,8 @@ function startProgress(durationSec){
   ];
   let lastStepIdx = -1;
 
+  if(progressTimer){ clearInterval(progressTimer); progressTimer = null; }
+
   progressTimer = setInterval(()=>{
     const now = performance.now();
     const elapsed = (now-startTime)/1000;
@@ -192,7 +257,7 @@ function startProgress(durationSec){
 
     percentText.textContent = `${Math.floor(progress)}% Complete`;
 
-    if(showStepsInput.checked){
+    if(showStepsInput && showStepsInput.checked){
       const pIdx = Math.floor((progress/100)*steps.length);
       if(pIdx!==lastStepIdx && pIdx<steps.length){
         lastStepIdx=pIdx;
@@ -242,14 +307,36 @@ function startFakeRestart(){
       biosScreen.scrollTop=0;
     }else{
       clearInterval(biosInterval);
-      setTimeout(()=>{
-        biosScreen.style.display='none';
-        menu.style.display='flex';
-        exitFullscreen();
-      },2500);
+      setTimeout(()=>startFakeLogin(),800);
     }
   },250);
 }
+
+// --- Fake login flow ---
+function startFakeLogin() {
+  biosScreen.style.display = 'none';
+  loginScreen.style.display = 'flex';
+  loginPassword.value = '';
+  loginPassword.focus();
+}
+
+
+
+// Accept any password
+loginPassword.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    loginScreen.style.display = 'none';
+    finalScreen.style.display = 'flex';
+    exitFullscreen();
+  }
+});
+
+// Fake reboot button
+fakeReboot.addEventListener('click', ()=>{
+  loginScreen.style.display='none';
+  menu.style.display='flex';
+  exitFullscreen();
+});
 
 // --- Cancel Escape ---
 function cancelAndReturn(){
@@ -257,7 +344,8 @@ function cancelAndReturn(){
   if(animReq){ cancelAnimationFrame(animReq); animReq=null;}
   biosScreen.style.display='none';
   updateScreen.style.display='none';
-  menu.style.display='flex';
+  loginScreen.style.display='none';
+  finalScreen.style.display = 'flex'; // afficher l'écran final
   exitFullscreen();
 }
 document.addEventListener('keydown',(e)=>{ if(e.key==="Escape") cancelAndReturn(); });
@@ -286,6 +374,10 @@ startBtn.addEventListener('click',()=>{
   enterFullscreen();
   startProgress(Number(durationInput.value)||10);
 });
+
+
+
+
 </script>
 </body>
 </html>
