@@ -128,7 +128,7 @@ function drawSpinner(){
   }
 }
 
-function spinnerLoop(){ spinAngle+=0.1; drawSpinner(); animReq=requestAnimationFrame(spinnerLoop); }
+function spinnerLoop(){ spinAngle+=0.05; drawSpinner(); animReq=requestAnimationFrame(spinnerLoop); }
 
 // --- Progression ---
 function startProgress(durationSec){
