@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fake Windows Update — Realistic</title>
+<style>
+  html,body{height:100%;margin:0;font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;}
+  body{background:#0078D7;color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center}
+
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;text-align:center;padding:24px;pointer-events:none;}
+  .screen .interactive{pointer-events:auto;} /* seuls les éléments interactifs reçoivent les clics */
+
+  #menu{display:flex;gap:12px;flex-direction:column;align-items:center}
+  .card{background: rgba(0,0,0,0.18);padding:18px;border-radius:12px;backdrop-filter: blur(4px);min-width:320px}
+
+  label{display:flex;justify-content:space-between;align-items:center;margin:8px 0;color:#fff}
+  input[type=number]{width:100px;padding:6px;border-radius:6px;border:none;background:rgba(255,255,255,0.06);color:#fff}
+  input[type=checkbox]{transform:scale(1.1);margin-left:8px}
+  button{margin-top:12px;padding:10px 14px;border-radius:8px;border:none;background:#0f1724;color:#fff;cursor:pointer;font-weight:600}
+  .muted{color:rgba(255,255,255,0.75);font-size:13px}
+
+  #updateScreen{display:flex;flex-direction:column;justify-content:center;align-items:center}
+  .title{font-size:28px;margin-bottom:24px;font-weight:500}
+  .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+  canvas#spinner{width:80px;height:80px;background:transparent;display:block}
+  .percentage{font-size:16px;font-weight:500;letter-spacing:1px;color:#fff;min-width:120px;text-align:center}
+
+  .status-box{margin-top:20px;font-size:16px;color:rgba(255,255,255,0.85);line-height:1.5;max-width:760px}
+
+  #biosScreen{background:#000;color:#fff;font-family:"Courier New", monospace;padding:20px;align-items:flex-start;justify-content:flex-start;overflow:auto;text-align:left}
+  #biosContent{white-space:pre-wrap;font-size:14px;line-height:1.4;max-width:100%;}
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div id="menu" class="screen" style="display:flex">
+  <div class="card interactive">
+    <h2 style="margin:0 0 6px 0">Fake Windows Update</h2>
+    <div class="muted">Configure the fake update screen (no sound).</div>
+    <label>Duration (seconds):
+      <input id="duration" type="number" min="5" max="600" value="10">
+    </label>
+    <label>Fullscreen on start:
+      <input id="fullscreen" type="checkbox" checked>
+    </label>
+    <label>Show step lines:
+      <input id="showSteps" type="checkbox" checked>
+    </label>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <button id="startBtn">Start Fake Update</button>
+    </div>
+	    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="miw4n" data-color="#FFDD00" data-emoji="🧋"  data-font="Cookie" data-text="Buy me a bubble tea" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+    <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.75)">
+      Press <strong>Esc</strong> at any time to cancel and return here.
+    </div>
+  </div>
+</div>
+
+<!-- UPDATE SCREEN -->
+<div id="updateScreen" class="screen" style="display:none">
+  <div class="spinner-wrap interactive">
+    <div class="title">Working on updates</div>
+    <canvas id="spinner" width="80" height="80"></canvas>
+    <div class="percentage" id="percentText">0% Complete</div>
+    <div class="status-box" id="statusBox">
+      <div id="line1">Installing updates...</div>
+      <div id="line2" style="margin-top:6px;opacity:0.9"></div>
+      <div id="line3" style="margin-top:6px;opacity:0.85"></div>
+      <div id="line4" style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.85)">Do not turn off your computer.</div>
+    </div>
+  </div>
+</div>
+
+<!-- BIOS SCREEN -->
+<div id="biosScreen" class="screen" style="display:none">
+  <div id="biosContent"></div>
+</div>
+
+
+<script>
+// --- Elements ---
+const menu = document.getElementById('menu');
+const startBtn = document.getElementById('startBtn');
+const durationInput = document.getElementById('duration');
+const fullscreenInput = document.getElementById('fullscreen');
+const showStepsInput = document.getElementById('showSteps');
+
+const updateScreen = document.getElementById('updateScreen');
+const spinnerCanvas = document.getElementById('spinner');
+const percentText = document.getElementById('percentText');
+const line1 = document.getElementById('line1');
+const line2 = document.getElementById('line2');
+const line3 = document.getElementById('line3');
+const line4 = document.getElementById('line4');
+
+const biosScreen = document.getElementById('biosScreen');
+const biosContent = document.getElementById('biosContent');
+
+let animReq = null;
+let progressTimer = null;
+let startTime = 0;
+let totalDuration = 10;
+
+// --- Spinner ---
+const ctx = spinnerCanvas.getContext('2d');
+const W = spinnerCanvas.width, H = spinnerCanvas.height;
+const cx = W/2, cy = H/2, radius = Math.min(W,H)/2 - 6;
+const DOT_COUNT = 12;
+let spinAngle = 0;
+
+function drawSpinner(){
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<DOT_COUNT;i++){
+    const angle = (i/DOT_COUNT)*Math.PI*2 + spinAngle;
+    const phase = (i/DOT_COUNT);
+    const lead = (spinAngle/(Math.PI*2)) %1;
+    let offset = (phase-lead+2)%1;
+    let fade = Math.max(0.12,1-offset*1.6);
+    let dotRadius = 3*(0.5+fade*0.5);
+    const x = cx + Math.cos(angle)*radius;
+    const y = cy + Math.sin(angle)*radius;
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,255,${0.18+fade*0.82})`;
+    ctx.arc(x,y,dotRadius,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function spinnerLoop(){ spinAngle+=0.1; drawSpinner(); animReq=requestAnimationFrame(spinnerLoop); }
+
+// --- Progression ---
+function startProgress(durationSec){
+  totalDuration = Math.max(3, Number(durationSec) || 10);
+  startTime = performance.now();
+  if(!animReq) animReq=requestAnimationFrame(spinnerLoop);
+
+  const steps = [
+    "Installing update 1 of 5...",
+    "Installing update 2 of 5...",
+    "Installing update 3 of 5...",
+    "Installing update 4 of 5...",
+    "Installing update 5 of 5...",
+    "Preparing to configure updates...",
+    "Configuring update settings...",
+    "Applying changes...",
+    "Optimizing system files...",
+    "Finalizing updates..."
+  ];
+  let lastStepIdx = -1;
+
+  progressTimer = setInterval(()=>{
+    const now = performance.now();
+    const elapsed = (now-startTime)/1000;
+    let progress = (elapsed/totalDuration)*100;
+    if(progress>80) progress = 80 + (progress-80)*0.25;
+    if(progress>100) progress=100;
+
+    percentText.textContent = `${Math.floor(progress)}% Complete`;
+
+    if(showStepsInput.checked){
+      const pIdx = Math.floor((progress/100)*steps.length);
+      if(pIdx!==lastStepIdx && pIdx<steps.length){
+        lastStepIdx=pIdx;
+        line1.textContent=steps[pIdx]||"";
+        line2.textContent=(pIdx+1<steps.length)?"Please wait while we apply this update.":"";
+        line3.textContent=(pIdx+2<steps.length)?"This might take several minutes.":"";
+      }
+    }
+
+    if(progress>=100-0.0001){
+      clearInterval(progressTimer);
+      progressTimer=null;
+      percentText.textContent='100% Complete';
+      setTimeout(()=>startFakeRestart(),2000);
+    }
+  },50);
+}
+
+// --- BIOS POST ---
+function startFakeRestart(){
+  if(animReq){ cancelAnimationFrame(animReq); animReq=null;}
+  updateScreen.style.display='none';
+  biosScreen.style.display='flex';
+
+  const postLines=[
+    "PhoenixBIOS Version 6.00",
+    "Copyright (C) 2012 Phoenix Technologies Ltd.",
+    "",
+    "Initializing CPU cores...",
+    "Memory test:   OK",
+    "Detecting devices...",
+    "SATA controller: OK",
+    "NVMe drive: OK",
+    "Checking boot devices...",
+    "Boot device found: SSD - Preparing bootloader",
+    "",
+    "Loading operating system...",
+    "",
+    "Press F2 for setup, F12 for boot menu"
+  ];
+  biosContent.textContent="";
+  let idx=0;
+  const biosInterval = setInterval(()=>{
+    if(idx<postLines.length){
+      biosContent.textContent += postLines[idx]+"\n";
+      idx++;
+      biosScreen.scrollTop=0;
+    }else{
+      clearInterval(biosInterval);
+      setTimeout(()=>{
+        biosScreen.style.display='none';
+        menu.style.display='flex';
+        exitFullscreen();
+      },2500);
+    }
+  },250);
+}
+
+// --- Cancel Escape ---
+function cancelAndReturn(){
+  if(progressTimer){ clearInterval(progressTimer); progressTimer=null;}
+  if(animReq){ cancelAnimationFrame(animReq); animReq=null;}
+  biosScreen.style.display='none';
+  updateScreen.style.display='none';
+  menu.style.display='flex';
+  exitFullscreen();
+}
+document.addEventListener('keydown',(e)=>{ if(e.key==="Escape") cancelAndReturn(); });
+
+// --- Fullscreen helpers ---
+function enterFullscreen(){
+  if(!fullscreenInput.checked) return;
+  const el = document.documentElement;
+  if(el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+}
+function exitFullscreen(){
+  if(document.fullscreenElement){
+    if(document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+  }
+}
+
+// --- Start button ---
+startBtn.addEventListener('click',()=>{
+  menu.style.display='none';
+  updateScreen.style.display='flex';
+  percentText.textContent='0% Complete';
+  line1.textContent='Installing updates...';
+  line2.textContent='';
+  line3.textContent='';
+  enterFullscreen();
+  startProgress(Number(durationInput.value)||10);
+});
+</script>
+</body>
+</html>
