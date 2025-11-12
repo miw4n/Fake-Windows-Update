@@ -194,12 +194,35 @@ let progressTimer = null;
 let startTime = 0;
 let totalDuration = 10;
 
-// --- Spinner ---
 const ctx = spinnerCanvas.getContext('2d');
 const W = spinnerCanvas.width, H = spinnerCanvas.height;
 const cx = W/2, cy = H/2, radius = Math.min(W,H)/2 - 6;
 const DOT_COUNT = 12;
 let spinAngle = 0;
+
+let wakeLock = null;
+
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('🟢 Wake Lock activé — l’écran restera allumé.');
+      wakeLock.addEventListener('release', () => {
+        console.log('🔴 Wake Lock relâché');
+      });
+    }
+  } catch (err) {
+    console.error('Erreur Wake Lock:', err);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock !== null) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
+
 
 function drawSpinner(){
   ctx.clearRect(0,0,W,H);
@@ -324,12 +347,14 @@ function startFakeLogin() {
 
 // Accept any password
 loginPassword.addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){
+  if (e.key === 'Enter') {
     loginScreen.style.display = 'none';
     finalScreen.style.display = 'flex';
+    releaseWakeLock(); // ✅ libère la veille
     exitFullscreen();
   }
 });
+
 
 // Fake reboot button
 fakeReboot.addEventListener('click', ()=>{
@@ -363,17 +388,21 @@ function exitFullscreen(){
 }
 
 // --- Start button ---
-startBtn.addEventListener('click',()=>{
-  menu.style.display='none';
-  updateScreen.style.display='flex';
-  percentText.textContent='0% Complete';
-  line1.textContent='Installing updates...';
-  line2.textContent='';
-  line3.textContent='';
+startBtn.addEventListener('click', () => {
+  menu.style.display = 'none';
+  updateScreen.style.display = 'flex';
+  percentText.textContent = '0% Complete';
+  line1.textContent = 'Installing updates...';
+  line2.textContent = '';
+  line3.textContent = '';
   spinSpeed = Number(spinSpeedInput.value) || 0.05;
+
   enterFullscreen();
-  startProgress(Number(durationInput.value)||10);
+  keepAwake(); 
+
+  startProgress(Number(durationInput.value) || 10);
 });
+
 
 
 
